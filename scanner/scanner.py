@@ -74,7 +74,7 @@ class Scanner:
 
 
 if __name__ == '__main__':
-    x = Scanner(['www.nmap.org','www.google.com.ar','www.isbc.com.ar'], Scanner.most_used_ports())
+    x = Scanner(['www.nmap.org'], Scanner.most_used_ports())
     print(x.getstatusbyhost())
 
 
