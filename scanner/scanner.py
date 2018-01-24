@@ -1,5 +1,4 @@
 
-
 class Scanner:
     _most_used_ports = {
         '21': 'FTP',
@@ -48,14 +47,35 @@ class Scanner:
             result = sc.scan(host, self.ports)
         finally:
             return result
+    def getportstatus(self,host,port):
+        import socket
+        try:
+           s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+           s.settimeout(0.5)
+           code = s.connect_ex((host, int(port)))
+        finally:
+                s.close()
+                return (code==0)
+
+    def getinfobyip(self,host):
+        result={}
+        for port in self.ports.split(","):
+            result[port]=self.getportstatus(host,port)
+        return result
 
     def getstatusbyhost(self):
         results = {}
         for host in self.hosts:
-            results[host] = self.getinfo(host)
+            payload=self.getinfo(host)
+            if payload=={}:
+                  payload=self.getinfobyip(host)
+            results[host] = payload
         return results
 
 
 if __name__ == '__main__':
-    x = Scanner(['127.0.0,1'], Scanner.most_used_ports())
+    x = Scanner(['www.nmap.org','www.google.com.ar','www.isbc.com.ar'], Scanner.most_used_ports())
     print(x.getstatusbyhost())
+
+
+
