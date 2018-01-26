@@ -1,3 +1,5 @@
+import threading
+
 
 class Scanner:
     _most_used_ports = {
@@ -31,51 +33,52 @@ class Scanner:
         '10000': 'VIRTUALMIN/WEBMIN'
     }
 
-    def __init__(self, hosts=[], ports=[]):
-        self.hosts = hosts
-        self.ports = ports
+    def __init__(self):
+        self.results = {}
 
     @classmethod
     def most_used_ports(cls):
-        return ','.join(Scanner._most_used_ports.keys())
+        return Scanner._most_used_ports.keys()
 
-    def getinfo(self, host):
-        import nmap
-        result = {}
-        try:
-            sc = nmap.PortScanner()
-            result = sc.scan(host, self.ports)
-        finally:
-            return result
-    def getportstatus(self,host,port):
-        import socket
-        try:
-           s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-           s.settimeout(0.5)
-           code = s.connect_ex((host, int(port)))
-        finally:
-                s.close()
-                return (code==0)
+    @classmethod
+    def getallservices(cls):
+        return Scanner._most_used_ports
 
-    def getinfobyip(self,host):
-        result={}
-        for port in self.ports.split(","):
-            result[port]=self.getportstatus(host,port)
+    @classmethod
+    def getsomeservices(cls, ports=[]):
+        result = dict()
+        for port in ports:
+            port = [port, port[1:]][port[0] == '/']
+            if port in Scanner.most_used_ports():
+                result[port] = Scanner._most_used_ports[port]
+            else:
+                result[port] = "unknown"
         return result
 
-    def getstatusbyhost(self):
-        results = {}
-        for host in self.hosts:
-            payload=self.getinfo(host)
-            if payload=={}:
-                  payload=self.getinfobyip(host)
-            results[host] = payload
-        return results
+    def getportstatus(self, host, port):
+        import socket
+        code = 1
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.3)
+            code = s.connect_ex((host, int(port)))
+        finally:
+            s.close()
+            return (code == 0)
+
+    def worker(self, host, ports):
+        self.results[host] = dict()
+        for port in ports:
+            self.results[host][port] = ["closed","open"][self.getportstatus(host, port)]
 
 
-if __name__ == '__main__':
-    x = Scanner(['www.nmap.org'], Scanner.most_used_ports())
-    print(x.getstatusbyhost())
-
-
-
+def process(hosts):
+    _threads = []
+    sc = Scanner()
+    for host in hosts.keys():
+        t = threading.Thread(target=sc.worker,
+                             args=(host, [hosts[host],Scanner.most_used_ports()][len(hosts[host]) == 0]))
+        t.start()
+        _threads.append(t)
+    [t.join() for t in _threads]
+    return sc.results
